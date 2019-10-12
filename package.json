@@ -4,6 +4,7 @@
   "description": "Simple CI system (homework for Yandex SHRI 2019)",
   "main": "index.js",
   "scripts": {
+    "server": "node-dev server/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -15,5 +16,20 @@
   "bugs": {
     "url": "https://github.com/shlensky/yandex-ci/issues"
   },
-  "homepage": "https://github.com/shlensky/yandex-ci#readme"
+  "homepage": "https://github.com/shlensky/yandex-ci#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "ejs": "~2.6.1",
+    "express": "^4.17.1",
+    "morgan": "^1.9.1"
+  },
+  "devDependencies": {
+    "eslint": "^6.4.0",
+    "eslint-config-standard": "^14.1.0",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-node": "^10.0.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "node-dev": "^4.0.0"
+  }
 }

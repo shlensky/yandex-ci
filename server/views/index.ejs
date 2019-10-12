@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CI index page</title>
+</head>
+<body>
+    <form action="/start_build" method="post">
+        <table border="1">
+            <thead>
+            <tr>
+                <th colspan="2">Запуск сборки</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>
+                    <label for="commit_hash">Хеш комита:</label>
+                </td>
+                <td>
+                    <input name="commit_hash" id="commit_hash">
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="build_command">Сборочная команда:</label>
+                </td>
+                <td>
+                    <textarea name="build_command" id="build_command"></textarea>
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td><button type="submit">Запустить сборку</button></td>
+            </tr>
+            </tbody>
+        </table>
+    </form>
+
+    <br>
+
+    <table border="1">
+        <thead>
+        <tr>
+            <th colspan="3">Список прошлых сборок</th>
+        </tr>
+        <tr>
+            <th>№</th>
+            <th>Статус</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>1</td>
+            <td>Успешно</td>
+            <td><a href="#">Детали</a></td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Неуспешно</td>
+            <td><a href="#">Детали</a></td>
+        </tr>
+        </tbody>
+    </table>
+</body>
+</html>
