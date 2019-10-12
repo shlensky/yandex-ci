@@ -1,0 +1,19 @@
+{
+  "name": "yandex-ci",
+  "version": "1.0.0",
+  "description": "Simple CI system (homework for Yandex SHRI 2019)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/shlensky/yandex-ci.git"
+  },
+  "author": "Dmitriy Shlenskiy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shlensky/yandex-ci/issues"
+  },
+  "homepage": "https://github.com/shlensky/yandex-ci#readme"
+}
