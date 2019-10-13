@@ -4,7 +4,7 @@ const {promisify} = require('util');
 const execAsync = promisify(exec);
 
 async function cloneRepo(reposPath, repoUrl, commitHash, directory) {
-  const CLONE_COMMAND = `git --no-pager clone -b ${commitHash} ${repoUrl} ${directory}`;
+  const CLONE_COMMAND = `git clone ${repoUrl} ${directory} && cd ${directory} && git reset --hard ${commitHash}`;
   const options = {cwd: reposPath, env: {GIT_TERMINAL_PROMPT: '0'}};
 
   try {
