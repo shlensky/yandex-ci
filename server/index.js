@@ -18,9 +18,13 @@ const MAX_QUEUE_SIZE = 100;
 const REPO_URL = 'https://github.com/shlensky/yandex-arcanum';
 
 let nextTaskId = 1;
-const agents = [];
-const tasks = [];
+let agents = [];
+let tasks = [];
 const queue = [];
+
+function getTaskById(id) {
+  return tasks.find(task => task.id === parseInt(id, 10));
+}
 
 async function runTaskOnAgent(task, agent) {
   const res = await fetch(`http://${agent.host}:${agent.port}/build`, {
@@ -42,7 +46,7 @@ async function drainQueue() {
   const agent = agents.find(agent => !agent.taskId);
   if (!agent) return;
 
-  const task = queue.pop();
+  const task = queue.shift();
   agent.taskId = task.id;
   task.status = 'starting';
   tasks.push(task);
@@ -52,13 +56,12 @@ async function drainQueue() {
     task.status = 'started';
     console.info(`Task ${task.id} started on agent ${agent.host}:${agent.port}`);
   } catch (e) {
-    task.status = 'failed';
-    task.stderr = e.message;
+    // remove broken agent and return task to the queue
+    agents = agents.filter(a => a !== agent);
+    queue.unshift(task);
+    tasks = tasks.filter(t => t !== task);
 
-    // todo: remove broken agent?
-    agent.taskId = null;
-
-    console.error(`Task ${task.id} failed to start on agent ${agent.host}:${agent.port}`);
+    console.error(`Task ${task.id} failed to start on agent ${agent.host}:${agent.port}. Return it to the queue.`, e);
   }
 }
 setInterval(drainQueue, 500);
@@ -96,7 +99,7 @@ app.post('/build', (req, res) => {
   res.render('index', locals);
 });
 app.get('/build/:id', (req, res) => {
-  const task = tasks.find(task => task.id === parseInt(req.params.id, 10));
+  const task = getTaskById(req.params.id);
   if (!task) {
     res.status(404).send(`Task with id ${req.params.id} is not found`);
     return;
@@ -110,7 +113,8 @@ app.post('/notify_agent', (req, res) => {
   // -- зарегистрировать агента . В параметрах хост и порт, на котором запущен агент
   const {host, port} = req.body;
   if (!host || !port) {
-    throw new Error('Host and port required!');
+    res.status(400).send('Host and port required!');
+    return;
   }
 
   // Check if agent is already registered
@@ -128,7 +132,26 @@ app.post('/notify_agent', (req, res) => {
 
 app.post('/notify_build_result', (req, res) => {
   // -- сохранить результаты сборки. В параметрах -- id сборки, статус, stdout и stderr процесса.
-  console.info('Todo: Save build result');
+  const {id, status, stdout, stderr} = req.body;
+  if (!id || !status) {
+    res.status(400).send('Id and status required!');
+    return;
+  }
+
+  const task = getTaskById(id);
+  if (!task) {
+    res.status(404).send(`Task with id ${id} is not found`);
+    return;
+  }
+
+  Object.assign(task, {id, status, stdout, stderr});
+
+  // release agent
+  const agent = agents.find((agent) => agent.taskId === id);
+  if (agent) {
+    agent.taskId = null;
+  }
+
   res.status(204).end();
 });
 

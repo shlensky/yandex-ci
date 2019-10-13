@@ -3,12 +3,13 @@ const bodyParser = require('body-parser');
 const logger = require('morgan');
 const fetch = require('node-fetch');
 const path = require('path');
-const {cloneRepo} = require('./git');
+const {cloneRepo, runBuild} = require('./utils');
 
 const app = express();
 app.use(bodyParser.json());
 app.use(logger('dev'));
 
+// ENV
 const DEFAULT_HOST = '0.0.0.0';
 const host = process.env.host || DEFAULT_HOST;
 
@@ -20,6 +21,28 @@ const serverUrl = process.env.serverUrl || DEFAULT_SERVER_URL;
 
 const DEFAULT_BUILDS_DIRECTORY = './builds';
 const buildsDirectory = path.resolve(process.env.buildsDirectory || DEFAULT_BUILDS_DIRECTORY);
+
+const SERVER_NOTIFICATION_RETRY_INTERVAL = 10 * 1000;
+
+async function notifyBuildResult(result) {
+  try {
+    await fetch(`${serverUrl}/notify_build_result`, {
+      method: 'post',
+      body: JSON.stringify({
+        id: result.id,
+        status: result.code ? 'failed' : 'success',
+        stdout: result.stdout,
+        stderr: result.stderr,
+      }),
+      headers: {'Content-Type': 'application/json'},
+    });
+
+    console.info(`Successfully notified server, task id is ${result.id}`);
+  } catch (e) {
+    console.error(`Server notification error, will retry in ${SERVER_NOTIFICATION_RETRY_INTERVAL}ms`, result, e);
+    setTimeout(() => notifyBuildResult(result), SERVER_NOTIFICATION_RETRY_INTERVAL);
+  }
+}
 
 // API for server
 app.post('/build', async (req, res, next) => {
@@ -33,19 +56,18 @@ app.post('/build', async (req, res, next) => {
     }
 
     const {id, repoUrl, commitHash, buildCommand} = req.body;
-    const buildDirectory = `build-${id}`;
-
-    try {
-      await cloneRepo(buildsDirectory, repoUrl, commitHash, buildDirectory);
-    } catch (e) {
-      res.status(500).send(e.message);
-      return;
-    }
+    const directoryName = `build-${id}`;
 
     res.status(204).send();
 
-    // todo: run build
-    console.log({buildCommand});
+    const cloneResult = await cloneRepo(buildsDirectory, repoUrl, commitHash, directoryName);
+    if (cloneResult.code) {
+      notifyBuildResult({...cloneResult, id});
+      return;
+    }
+
+    const buildResult = await runBuild(path.resolve(buildsDirectory, directoryName), buildCommand);
+    notifyBuildResult({...buildResult, id});
   } catch (e) {
     next(e);
   }
