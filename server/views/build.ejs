@@ -5,6 +5,37 @@
     <title>CI build page</title>
 </head>
 <body>
-    tbd...
+    Navigation: <a href="/">Index page</a>
+
+    <hr>
+
+    <table border="1">
+        <tbody>
+        <tr>
+            <td>ID</td>
+            <td><%= task.id %></td>
+        </tr>
+        <tr>
+            <td>Статус</td>
+            <td><%= task.status %></td>
+        </tr>
+        <tr>
+            <td>Хеш комита</td>
+            <td><%= task.commitHash %></td>
+        </tr>
+        <tr>
+            <td>Сборочная команда</td>
+            <td><%= task.buildCommand %></td>
+        </tr>
+        <tr>
+            <td>stdout</td>
+            <td><pre><%= task.stdout %></pre></td>
+        </tr>
+        <tr>
+            <td>stderr</td>
+            <td><pre><%= task.stderr %></pre></td>
+        </tr>
+        </tbody>
+    </table>
 </body>
 </html>

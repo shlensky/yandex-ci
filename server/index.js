@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const logger = require('morgan');
 const path = require('path');
+const fetch = require('node-fetch');
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: false}));
@@ -14,15 +15,58 @@ app.set('view engine', 'ejs');
 
 // ENV
 const MAX_QUEUE_SIZE = 100;
+const REPO_URL = 'https://github.com/shlensky/yandex-arcanum';
 
 let nextTaskId = 1;
 const agents = [];
+const tasks = [];
 const queue = [];
 
+async function runTaskOnAgent(task, agent) {
+  const res = await fetch(`http://${agent.host}:${agent.port}/build`, {
+    method: 'post',
+    body: JSON.stringify({...task, repoUrl: REPO_URL}),
+    headers: {'Content-Type': 'application/json'},
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText);
+  }
+}
+
+async function drainQueue() {
+  if (!queue.length) return;
+  if (!agents.length) return;
+
+  const agent = agents.find(agent => !agent.taskId);
+  if (!agent) return;
+
+  const task = queue.pop();
+  agent.taskId = task.id;
+  task.status = 'starting';
+  tasks.push(task);
+
+  try {
+    await runTaskOnAgent(task, agent);
+    task.status = 'started';
+    console.info(`Task ${task.id} started on agent ${agent.host}:${agent.port}`);
+  } catch (e) {
+    task.status = 'failed';
+    task.stderr = e.message;
+
+    // todo: remove broken agent?
+    agent.taskId = null;
+
+    console.error(`Task ${task.id} failed to start on agent ${agent.host}:${agent.port}`);
+  }
+}
+setInterval(drainQueue, 500);
+
 // web interface
-app.get('/', (req, res) => res.render('index', {queue}));
+app.get('/', (req, res) => res.render('index', {queue, tasks}));
 app.post('/build', (req, res) => {
-  const locals = {queue};
+  const locals = {queue, tasks};
 
   // Check required fields
   const requiredFields = ['commitHash', 'buildCommand'];
@@ -51,7 +95,15 @@ app.post('/build', (req, res) => {
   locals.message = `Task added to queue, task id is ${id}`;
   res.render('index', locals);
 });
-app.get('/build/:id', (req, res) => res.render('build', {}));
+app.get('/build/:id', (req, res) => {
+  const task = tasks.find(task => task.id === parseInt(req.params.id, 10));
+  if (!task) {
+    res.status(404).send(`Task with id ${req.params.id} is not found`);
+    return;
+  }
+
+  res.render('build', {task});
+});
 
 // API for agents
 app.post('/notify_agent', (req, res) => {

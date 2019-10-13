@@ -2,16 +2,12 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const logger = require('morgan');
 const fetch = require('node-fetch');
+const path = require('path');
+const {cloneRepo} = require('./git');
 
 const app = express();
 app.use(bodyParser.json());
 app.use(logger('dev'));
-
-// API for server
-app.post('/build', (req, res) => {
-  // -- запустить сборку. В параметрах -- id сборки, адрес репозитория, хэш коммита, команда, которую надо запустить
-  console.log('start build agent');
-});
 
 const DEFAULT_HOST = '0.0.0.0';
 const host = process.env.host || DEFAULT_HOST;
@@ -21,6 +17,39 @@ const port = process.env.port || DEFAULT_PORT;
 
 const DEFAULT_SERVER_URL = 'http://0.0.0.0:3000';
 const serverUrl = process.env.serverUrl || DEFAULT_SERVER_URL;
+
+const DEFAULT_BUILDS_DIRECTORY = './builds';
+const buildsDirectory = path.resolve(process.env.buildsDirectory || DEFAULT_BUILDS_DIRECTORY);
+
+// API for server
+app.post('/build', async (req, res, next) => {
+  try {
+    // -- запустить сборку. В параметрах -- id сборки, адрес репозитория, хэш коммита, команда, которую надо запустить
+    const requiredFields = ['id', 'repoUrl', 'commitHash', 'buildCommand'];
+    const absentField = requiredFields.find((field) => !req.body[field]);
+    if (absentField) {
+      res.status(400).send(`${absentField} is required`);
+      return;
+    }
+
+    const {id, repoUrl, commitHash, buildCommand} = req.body;
+    const buildDirectory = `build-${id}`;
+
+    try {
+      await cloneRepo(buildsDirectory, repoUrl, commitHash, buildDirectory);
+    } catch (e) {
+      res.status(500).send(e.message);
+      return;
+    }
+
+    res.status(204).send();
+
+    // todo: run build
+    console.log({buildCommand});
+  } catch (e) {
+    next(e);
+  }
+});
 
 async function registerOnServer(serverUrl) {
   try {

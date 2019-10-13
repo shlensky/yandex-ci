@@ -5,6 +5,10 @@
     <title>CI index page</title>
 </head>
 <body>
+    Navigation: <a href="/">Index page</a>
+
+    <hr>
+
     <form action="/build" method="post">
         <% if (locals.error) { %><strong style="color: red"><%= locals.error %></strong><% } %>
         <% if (locals.message) { %><strong style="color: green"><%= locals.message %></strong><% } %>
@@ -49,14 +53,14 @@
             </tr>
             <tr>
                 <th>№</th>
-                <th></th>
+                <th>Хеш комита</th>
             </tr>
             </thead>
             <tbody>
             <% queue.forEach((task) => { %>
                 <tr>
                     <td><%= task.id %></td>
-                    <td><a href="/build/<%= task.id %>">Детали</a></td>
+                    <td><%= task.commitHash %></td>
                 </tr>
             <% }) %>
             </tbody>
@@ -64,29 +68,28 @@
         <br>
     <% } %>
 
-    <table border="1">
-        <thead>
-        <tr>
-            <th colspan="3">Список прошлых сборок</th>
-        </tr>
-        <tr>
-            <th>№</th>
-            <th>Статус</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <td>1</td>
-            <td>Успешно</td>
-            <td><a href="/build/1">Детали</a></td>
-        </tr>
-        <tr>
-            <td>2</td>
-            <td>Неуспешно</td>
-            <td><a href="/build/2">Детали</a></td>
-        </tr>
-        </tbody>
-    </table>
+    <% if (tasks.length) { %>
+        <table border="1">
+            <thead>
+            <tr>
+                <th colspan="3">Список прошлых сборок</th>
+            </tr>
+            <tr>
+                <th>№</th>
+                <th>Статус</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <% tasks.forEach((task) => { %>
+                <tr>
+                    <td><%= task.id %></td>
+                    <td><%= task.status %></td>
+                    <td><a href="/build/<%= task.id %>">Детали</a></td>
+                </tr>
+            <% }) %>
+            </tbody>
+        </table>
+    <% } %>
 </body>
 </html>
