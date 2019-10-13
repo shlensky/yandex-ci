@@ -67,9 +67,10 @@ async function drainQueue() {
 setInterval(drainQueue, 500);
 
 // web interface
-app.get('/', (req, res) => res.render('index', {queue, tasks}));
+app.get('/', (req, res) => res.render('index', {queue, tasks, agents}));
+
 app.post('/build', (req, res) => {
-  const locals = {queue, tasks};
+  const locals = {queue, tasks, agents};
 
   // Check required fields
   const requiredFields = ['commitHash', 'buildCommand'];
@@ -98,6 +99,7 @@ app.post('/build', (req, res) => {
   locals.message = `Task added to queue, task id is ${id}`;
   res.render('index', locals);
 });
+
 app.get('/build/:id', (req, res) => {
   const task = getTaskById(req.params.id);
   if (!task) {
