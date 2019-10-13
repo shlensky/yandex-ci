@@ -11,16 +11,16 @@ app.use(logger('dev'));
 
 // ENV
 const DEFAULT_HOST = '0.0.0.0';
-const host = process.env.host || DEFAULT_HOST;
+const host = process.env.HOST || DEFAULT_HOST;
 
 const DEFAULT_PORT = 3001;
-const port = process.env.port || DEFAULT_PORT;
+const port = process.env.PORT || DEFAULT_PORT;
 
 const DEFAULT_SERVER_URL = 'http://0.0.0.0:3000';
-const serverUrl = process.env.serverUrl || DEFAULT_SERVER_URL;
+const serverUrl = process.env.SERVER_URL || DEFAULT_SERVER_URL;
 
 const DEFAULT_BUILDS_DIRECTORY = './builds';
-const buildsDirectory = path.resolve(process.env.buildsDirectory || DEFAULT_BUILDS_DIRECTORY);
+const buildsDirectory = path.resolve(process.env.BUILDS_DIRECTORY || DEFAULT_BUILDS_DIRECTORY);
 
 const SERVER_NOTIFICATION_RETRY_INTERVAL = 10 * 1000;
 
@@ -72,6 +72,7 @@ app.post('/build', async (req, res, next) => {
     next(e);
   }
 });
+app.get('/ping', (req, res) => res.status('204').end());
 
 async function registerOnServer(serverUrl) {
   try {

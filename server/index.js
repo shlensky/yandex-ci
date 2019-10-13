@@ -21,12 +21,13 @@ app.set('view engine', 'ejs');
 
 // ENV
 const MAX_QUEUE_SIZE = 100;
-const REPO_URL = 'https://github.com/shlensky/yandex-arcanum';
+const DEFAULT_REPO_URL = 'https://github.com/shlensky/yandex-arcanum';
+const repoUrl = process.env.REPO_URL || DEFAULT_REPO_URL;
 
 async function runTaskOnAgent(task, agent) {
   const res = await fetch(`http://${agent.host}:${agent.port}/build`, {
     method: 'post',
-    body: JSON.stringify({...task, repoUrl: REPO_URL}),
+    body: JSON.stringify({...task, repoUrl}),
     headers: {'Content-Type': 'application/json'},
   });
 
@@ -34,6 +35,18 @@ async function runTaskOnAgent(task, agent) {
     const errorText = await res.text();
     throw new Error(errorText);
   }
+}
+
+function removeBrokenAgent(agent) {
+  // return task to the queue if present
+  if (agent.taskId) {
+    const task = db.get('tasks').find({id: agent.taskId}).value();
+    db.get('tasks').remove(task).value();
+    db.get('queue').unshift(task).value();
+  }
+
+  db.get('agents').remove(agent).value();
+  db.write();
 }
 
 async function drainQueue() {
@@ -60,15 +73,43 @@ async function drainQueue() {
     console.info(`Task ${task.id} started on agent ${agent.host}:${agent.port}`);
   } catch (e) {
     // remove broken agent and return task to the queue
-    db.get('agents').remove(agent).value();
-    db.get('queue').unshift(task).value();
-    db.get('tasks').remove(task).value();
-    db.write();
+    removeBrokenAgent(agent);
 
     console.error(`Task ${task.id} failed to start on agent ${agent.host}:${agent.port}. Return it to the queue.`, e);
   }
 }
 setInterval(drainQueue, 500);
+
+async function pingAgent(agent) {
+  try {
+    const res = await fetch(`http://${agent.host}:${agent.port}/ping`);
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+const CHECK_AGENTS_INTERVAL = 10 * 1000;
+async function checkAgents() {
+  // check only agents with tasks
+  const agents = db.get('agents').filter(agent => agent.taskId).value();
+
+  try {
+    if (agents.length) {
+      console.info(`Checking ${agents.length} agent(s)`);
+    }
+    for (const agent of agents) {
+      const isOk = await pingAgent(agent);
+      if (!isOk) {
+        console.error(`Agent ${agent.host}:${agent.port} is not responding. Removing it and returning task to the queue.`);
+        removeBrokenAgent(agent);
+      }
+    }
+  } finally {
+    setTimeout(checkAgents, CHECK_AGENTS_INTERVAL);
+  }
+}
+setTimeout(checkAgents, CHECK_AGENTS_INTERVAL);
 
 // web interface
 app.get('/', (req, res) => res.render('index', {
@@ -96,7 +137,7 @@ app.post('/build', (req, res) => {
   // Check queue size limit
   const queue = db.get('queue').value();
   if (queue.length >= MAX_QUEUE_SIZE) {
-    locals.error = `${MAX_QUEUE_SIZE} limit exceeded, please add more agents`;
+    locals.error = `Limit of maximum ${MAX_QUEUE_SIZE} tasks in queue exceeded, please add more agents`;
     res.status(400).render('index', locals);
     return;
   }
@@ -177,5 +218,5 @@ app.post('/notify_build_result', (req, res) => {
 });
 
 const DEFAULT_PORT = 3000;
-const port = process.env.port || DEFAULT_PORT;
+const port = process.env.PORT || DEFAULT_PORT;
 app.listen(port, () => console.info(`Server listening on http://0.0.0.0:${port}/`));
