@@ -5,7 +5,9 @@
     <title>CI index page</title>
 </head>
 <body>
-    <form action="/start_build" method="post">
+    <form action="/build" method="post">
+        <% if (locals.error) { %><strong style="color: red"><%= locals.error %></strong><% } %>
+        <% if (locals.message) { %><strong style="color: green"><%= locals.message %></strong><% } %>
         <table border="1">
             <thead>
             <tr>
@@ -18,7 +20,7 @@
                     <label for="commit_hash">Хеш комита:</label>
                 </td>
                 <td>
-                    <input name="commit_hash" id="commit_hash">
+                    <input name="commitHash" id="commit_hash">
                 </td>
             </tr>
             <tr>
@@ -26,7 +28,7 @@
                     <label for="build_command">Сборочная команда:</label>
                 </td>
                 <td>
-                    <textarea name="build_command" id="build_command"></textarea>
+                    <textarea name="buildCommand" id="build_command"></textarea>
                 </td>
             </tr>
             <tr>
@@ -38,6 +40,29 @@
     </form>
 
     <br>
+
+    <% if (queue.length) { %>
+        <table border="1">
+            <thead>
+            <tr>
+                <th colspan="3">Очередь на сборку</th>
+            </tr>
+            <tr>
+                <th>№</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <% queue.forEach((task) => { %>
+                <tr>
+                    <td><%= task.id %></td>
+                    <td><a href="/build/<%= task.id %>">Детали</a></td>
+                </tr>
+            <% }) %>
+            </tbody>
+        </table>
+        <br>
+    <% } %>
 
     <table border="1">
         <thead>

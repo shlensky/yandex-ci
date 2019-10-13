@@ -4,6 +4,7 @@ const logger = require('morgan');
 const path = require('path');
 
 const app = express();
+app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
 app.use(logger('dev'));
 
@@ -11,12 +12,48 @@ app.use(logger('dev'));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+// ENV
+const MAX_QUEUE_SIZE = 100;
+
+let nextTaskId = 1;
+const agents = [];
+const queue = [];
+
 // web interface
-app.get('/', (req, res) => res.render('index', {}));
+app.get('/', (req, res) => res.render('index', {queue}));
+app.post('/build', (req, res) => {
+  const locals = {queue};
+
+  // Check required fields
+  const requiredFields = ['commitHash', 'buildCommand'];
+  const absentField = requiredFields.find((field) => !req.body[field]);
+  if (absentField) {
+    locals.error = `${absentField} is required`;
+    res.status(400).render('index', locals);
+    return;
+  }
+
+  // Check queue size limit
+  if (queue.length >= MAX_QUEUE_SIZE) {
+    locals.error = `${MAX_QUEUE_SIZE} limit exceeded, please add more agents`;
+    res.status(400).render('index', locals);
+    return;
+  }
+
+  const {commitHash, buildCommand} = req.body;
+  const id = nextTaskId++;
+  queue.push({
+    id,
+    commitHash,
+    buildCommand,
+  });
+
+  locals.message = `Task added to queue, task id is ${id}`;
+  res.render('index', locals);
+});
 app.get('/build/:id', (req, res) => res.render('build', {}));
 
 // API for agents
-const agents = [];
 app.post('/notify_agent', (req, res) => {
   // -- зарегистрировать агента . В параметрах хост и порт, на котором запущен агент
   const {host, port} = req.body;
