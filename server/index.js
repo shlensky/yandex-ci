@@ -3,6 +3,12 @@ const bodyParser = require('body-parser');
 const logger = require('morgan');
 const path = require('path');
 const fetch = require('node-fetch');
+const low = require('lowdb');
+const FileSync = require('lowdb/adapters/FileSync');
+
+const adapter = new FileSync('db.json');
+const db = low(adapter);
+db.defaults({agents: [], tasks: [], queue: [], nextTaskId: 1}).write();
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: false}));
@@ -16,15 +22,6 @@ app.set('view engine', 'ejs');
 // ENV
 const MAX_QUEUE_SIZE = 100;
 const REPO_URL = 'https://github.com/shlensky/yandex-arcanum';
-
-let nextTaskId = 1;
-let agents = [];
-let tasks = [];
-const queue = [];
-
-function getTaskById(id) {
-  return tasks.find(task => task.id === parseInt(id, 10));
-}
 
 async function runTaskOnAgent(task, agent) {
   const res = await fetch(`http://${agent.host}:${agent.port}/build`, {
@@ -40,6 +37,10 @@ async function runTaskOnAgent(task, agent) {
 }
 
 async function drainQueue() {
+  const queue = db.get('queue').value();
+  const agents = db.get('agents').value();
+  const tasks = db.get('tasks').value();
+
   if (!queue.length) return;
   if (!agents.length) return;
 
@@ -51,15 +52,18 @@ async function drainQueue() {
   task.status = 'starting';
   tasks.push(task);
 
+  db.write();
+
   try {
     await runTaskOnAgent(task, agent);
-    task.status = 'started';
+    db.get('tasks').find({id: task.id}).set('status', 'started').write();
     console.info(`Task ${task.id} started on agent ${agent.host}:${agent.port}`);
   } catch (e) {
     // remove broken agent and return task to the queue
-    agents = agents.filter(a => a !== agent);
-    queue.unshift(task);
-    tasks = tasks.filter(t => t !== task);
+    db.get('agents').remove(agent).value();
+    db.get('queue').unshift(task).value();
+    db.get('tasks').remove(task).value();
+    db.write();
 
     console.error(`Task ${task.id} failed to start on agent ${agent.host}:${agent.port}. Return it to the queue.`, e);
   }
@@ -67,10 +71,18 @@ async function drainQueue() {
 setInterval(drainQueue, 500);
 
 // web interface
-app.get('/', (req, res) => res.render('index', {queue, tasks, agents}));
+app.get('/', (req, res) => res.render('index', {
+  queue: db.get('queue').value(),
+  tasks: db.get('tasks').value(),
+  agents: db.get('agents').value(),
+}));
 
 app.post('/build', (req, res) => {
-  const locals = {queue, tasks, agents};
+  const locals = {
+    queue: db.get('queue').value(),
+    tasks: db.get('tasks').value(),
+    agents: db.get('agents').value(),
+  };
 
   // Check required fields
   const requiredFields = ['commitHash', 'buildCommand'];
@@ -82,6 +94,7 @@ app.post('/build', (req, res) => {
   }
 
   // Check queue size limit
+  const queue = db.get('queue').value();
   if (queue.length >= MAX_QUEUE_SIZE) {
     locals.error = `${MAX_QUEUE_SIZE} limit exceeded, please add more agents`;
     res.status(400).render('index', locals);
@@ -89,19 +102,22 @@ app.post('/build', (req, res) => {
   }
 
   const {commitHash, buildCommand} = req.body;
-  const id = nextTaskId++;
+  const id = db.get('nextTaskId').value();
+  db.update('nextTaskId', n => n + 1).value();
+
   queue.push({
     id,
     commitHash,
     buildCommand,
   });
+  db.write();
 
   locals.message = `Task added to queue, task id is ${id}`;
   res.render('index', locals);
 });
 
 app.get('/build/:id', (req, res) => {
-  const task = getTaskById(req.params.id);
+  const task = db.get('tasks').find({id: parseInt(req.params.id, 10)}).value();
   if (!task) {
     res.status(404).send(`Task with id ${req.params.id} is not found`);
     return;
@@ -120,6 +136,7 @@ app.post('/notify_agent', (req, res) => {
   }
 
   // Check if agent is already registered
+  const agents = db.get('agents').value();
   if (agents.some((agent) => agent.host === host && agent.port === port)) {
     console.info(`Agent is already registered, agent url is http://${host}:${port}`);
     res.status(200).send('Agent is already registered');
@@ -127,6 +144,7 @@ app.post('/notify_agent', (req, res) => {
   }
 
   agents.push({host, port});
+  db.write();
 
   console.info(`Agent registered, agent url is http://${host}:${port}`);
   res.status(204).end();
@@ -140,7 +158,7 @@ app.post('/notify_build_result', (req, res) => {
     return;
   }
 
-  const task = getTaskById(id);
+  const task = db.get('tasks').find({id}).value();
   if (!task) {
     res.status(404).send(`Task with id ${id} is not found`);
     return;
@@ -149,10 +167,11 @@ app.post('/notify_build_result', (req, res) => {
   Object.assign(task, {id, status, stdout, stderr});
 
   // release agent
-  const agent = agents.find((agent) => agent.taskId === id);
+  const agent = db.get('agents').find((agent) => agent.taskId === id).value();
   if (agent) {
     agent.taskId = null;
   }
+  db.write();
 
   res.status(204).end();
 });
