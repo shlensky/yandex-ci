@@ -11,7 +11,7 @@ async function cloneRepo(reposPath, repoUrl, commitHash, directory) {
     const {stdout, stderr} = await execAsync(CLONE_COMMAND, options);
     return {code: 0, stdout, stderr};
   } catch (e) {
-    return {code: e.code, stdout: e.stdout, stderr: e.stderr};
+    return {code: e.code, stdout: e.stdout, stderr: e.stderr ? e.stderr : e.toString()};
   }
 }
 

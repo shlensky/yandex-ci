@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const logger = require('morgan');
 const fetch = require('node-fetch');
 const path = require('path');
+const {host, port, serverUrl, buildsDirectory} = require('./env');
 const {cloneRepo, runBuild} = require('./utils');
 
 const app = express();
@@ -10,19 +11,8 @@ app.use(bodyParser.json());
 app.use(logger('dev'));
 
 // ENV
-const DEFAULT_HOST = '0.0.0.0';
-const host = process.env.HOST || DEFAULT_HOST;
-
-const DEFAULT_PORT = 3001;
-const port = process.env.PORT || DEFAULT_PORT;
-
-const DEFAULT_SERVER_URL = 'http://0.0.0.0:3000';
-const serverUrl = process.env.SERVER_URL || DEFAULT_SERVER_URL;
-
-const DEFAULT_BUILDS_DIRECTORY = './builds';
-const buildsDirectory = path.resolve(process.env.BUILDS_DIRECTORY || DEFAULT_BUILDS_DIRECTORY);
-
 const SERVER_NOTIFICATION_RETRY_INTERVAL = 10 * 1000;
+console.info(`Builds directory is ${buildsDirectory}`);
 
 async function notifyBuildResult(result) {
   try {
@@ -89,7 +79,7 @@ async function registerOnServer(serverUrl) {
   }
 }
 
-app.listen(port, () => {
+app.listen(port, host, () => {
   console.info(`Agent is listening on http://${host}:${port}/`);
   registerOnServer(serverUrl);
 });

@@ -5,6 +5,7 @@ const path = require('path');
 const fetch = require('node-fetch');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
+const {port, repoUrl} = require('./env');
 
 const adapter = new FileSync('db.json');
 const db = low(adapter);
@@ -20,9 +21,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 // ENV
-const MAX_QUEUE_SIZE = 100;
-const DEFAULT_REPO_URL = 'https://github.com/shlensky/yandex-arcanum';
-const repoUrl = process.env.REPO_URL || DEFAULT_REPO_URL;
+console.info(`Repository URL is ${repoUrl}`);
 
 async function runTaskOnAgent(task, agent) {
   const res = await fetch(`http://${agent.host}:${agent.port}/build`, {
@@ -118,6 +117,7 @@ app.get('/', (req, res) => res.render('index', {
   agents: db.get('agents').value(),
 }));
 
+const MAX_QUEUE_SIZE = 100;
 app.post('/build', (req, res) => {
   const locals = {
     queue: db.get('queue').value(),
@@ -217,6 +217,4 @@ app.post('/notify_build_result', (req, res) => {
   res.status(204).end();
 });
 
-const DEFAULT_PORT = 3000;
-const port = process.env.PORT || DEFAULT_PORT;
 app.listen(port, () => console.info(`Server listening on http://0.0.0.0:${port}/`));
