@@ -20,6 +20,14 @@
             <td><%= task.status %></td>
         </tr>
         <tr>
+            <td>Запущен</td>
+            <td><%= task.started ? (new Date(task.started)).toLocaleString() : '-' %></td>
+        </tr>
+        <tr>
+            <td>Завершен</td>
+            <td><%= task.finished ? (new Date(task.finished)).toLocaleString() : '-' %></td>
+        </tr>
+        <tr>
             <td>Хеш комита</td>
             <td><%= task.commitHash %></td>
         </tr>

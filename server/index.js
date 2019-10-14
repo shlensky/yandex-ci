@@ -68,7 +68,11 @@ async function drainQueue() {
 
   try {
     await runTaskOnAgent(task, agent);
-    db.get('tasks').find({id: task.id}).set('status', 'started').write();
+    db.get('tasks')
+      .find({id: task.id})
+      .set('status', 'started')
+      .set('started', (new Date()).toISOString())
+      .write();
     console.info(`Task ${task.id} started on agent ${agent.host}:${agent.port}`);
   } catch (e) {
     // remove broken agent and return task to the queue
@@ -205,7 +209,7 @@ app.post('/notify_build_result', (req, res) => {
     return;
   }
 
-  Object.assign(task, {id, status, stdout, stderr});
+  Object.assign(task, {id, status, stdout, stderr, finished: (new Date()).toISOString()});
 
   // release agent
   const agent = db.get('agents').find((agent) => agent.taskId === id).value();
